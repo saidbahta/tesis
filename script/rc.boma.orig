@@ -6,11 +6,11 @@
 
 daemonName="$0"
 
-pidDir="/var/run"
+pidDir="."
 pidFile="$pidDir/$daemonName.pid"
 pidFile="$daemonName.pid"
 
-logDir="/var/log/snort/boma"
+logDir="."
 # To use a dated log file.
 # logFile="$logDir/$daemonName-"`date +"%Y-%m-%d"`".log"
 # To use a regular log file.

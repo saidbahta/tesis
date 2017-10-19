@@ -1,0 +1,17 @@
+NULL :
+var=	#this is a null 
+var=""	#this is a null
+var=" " #this isn't a null 
+var="a" #this isn't a null 
+var=0 	#this isn't a null
+
+STRING : 
+var=" "
+var="STRING"
+var="1" or var=1
+
+ARITHMETIC : 
+var=$((1+4))
+
+COMMAND :
+var=`wc -l file_name` or var=$(wc -l file_name)

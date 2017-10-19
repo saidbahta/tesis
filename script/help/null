@@ -1,0 +1,6 @@
+var=	#this is a null 
+var=""	#this is a null
+var=" " #this isn't a null 
+var="a" #this isn't a null 
+var=0 	#this isn't a null 
+
