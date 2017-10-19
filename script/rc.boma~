@@ -23,7 +23,9 @@ runInterval=60 # In seconds
 
 doCommands() {
   # This is where you put all the commands for the daemon.
-  echo "$0 is running >>>>"
+  echo "myPid = $myPid"
+  echo "oldPid = $oldPid"
+  echo "pidFile = `cat $pidFile`"
 }
 
 ################################################################################
