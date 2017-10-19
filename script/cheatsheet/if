@@ -1,0 +1,22 @@
+if [ "$AA" == "$BB" ]; then  
+echo "SAMA"; 
+else  
+echo "TIDAK SAMA"; 
+fi
+
+if [ ! -d "$pidDir" ]; then	# ! -d (check direktory didn't exist)  
+mkdir "$pidDir";
+fi 
+
+if [ -z "$var" ] ; then		# -z (check if $var is null)  
+echo null; 
+else  
+echo "not null"; 
+fi
+
+if [ -n "$var" ] ; then		# -n (check if $var is not null)  
+echo "not null"; 
+else  
+echo null; 
+fi
+
