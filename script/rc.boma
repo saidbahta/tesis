@@ -142,12 +142,14 @@ resetSystem(){
 iptables -F
 rm /var/log/snort/boma/alertF 
 rm /var/log/snort/boma/ips-rule.sh
+rm $pidFile && touch $pidFile
 for pid in $(ps -ef | grep "$0" | grep -v grep | awk '{print $2}'); 
 	do kill -9 $pid &> /dev/null ; 
 for pid in $(ps -ef | grep 'inotifywait' | grep -v grep | awk '{print $2}'); 
 	do kill -9 $pid &> /dev/null ; 
 for pid in $(ps -ef | grep 'snort' | grep -v grep | awk '{print $2}'); 
 	do kill -9 $pid &> /dev/null ; 
+
 done 
 done
 done 
@@ -159,6 +161,8 @@ statusDaemon() {
 	status=$? 
 	if [[ $status -eq 1 ]]; then
 		echo " * $daemonName is running."
+		cat $pidFile
+		echo $oldPid 	
 	else
 		echo " * $daemonName isn't running."
 	fi
@@ -195,14 +199,14 @@ ipsSystem() {
 	# Wait for change in alert file, then create alertF (alert_filter) file  
 	inotifywait -q -m -e modify "$SNORT_LOG_DIR/alert" | 
 	while read events; 
-	do cat "$SNORT_LOG_DIR/alert" | awk '{print($4,$5,$6,$3,$11,$12,$13)}' | uniq -c > "$BOMA_LOG_DIR/alertF";
+	do sed -r 's/^.*} (([0-9]{1,3}\.){3}[0-9]{1,3}).*/\1/' "$SNORT_LOG_DIR/alert" | uniq -c > "$BOMA_LOG_DIR/alertF";
 		ALERT_FILTER=$(wc -l $BOMA_LOG_DIR/alertF | awk '{print $1}')
 		IPS_RULE=$(wc -l $BOMA_LOG_DIR/ips-rule.sh | awk '{print $1}')
 		# Compare alertF and ips-rule.sh so that the ips-rules.sh only run when there is a new kind of rule
 		if [ "$ALERT_FILTER" == "$IPS_RULE" ]; then  
 			continue 
 		else  
-			cat "$BOMA_LOG_DIR/alertF" | awk '{print "iptables -I INPUT -s "$6" -j DROP"}' > "$BOMA_LOG_DIR/ips-rule.sh"
+			cat "$BOMA_LOG_DIR/alertF" | awk '{print "iptables -I INPUT -s "$2" -j DROP"}' > "$BOMA_LOG_DIR/ips-rule.sh"
 			chmod +x "$BOMA_LOG_DIR/ips-rule.sh"
 			"$BOMA_LOG_DIR/ips-rule.sh"
 		fi
