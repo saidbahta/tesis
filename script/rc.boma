@@ -14,7 +14,12 @@ daemonName="$0"
 pidDir="/var/run"
 pidFile="$pidDir/$daemonName.pid"
 pidFile="$daemonName.pid"
+SNORT_LOG_DIR="/var/log/snort/"
+BOMA_LOG_DIR="/var/log/snort/boma"
+BOMA_RULES="/var/log/snort/boma/ips-rule.sh"
+
 myPid=`echo $$`
+
 
 logDir="/var/log/snort/boma"
 # To use a dated log file.
@@ -139,19 +144,22 @@ stopDaemon() {
 }
 
 resetSystem(){
+echo "Reset iptables -F, rm alertF, ips-rules.sh and $pidFile"
 iptables -F
-rm /var/log/snort/boma/alertF 
-rm /var/log/snort/boma/ips-rule.sh
-rm $pidFile && touch $pidFile
-for pid in $(ps -ef | grep "$0" | grep -v grep | awk '{print $2}'); 
+if [ -f "$BOMA_LOG_DIR/alertF" ]; then 
+	rm "$BOMA_LOG_DIR/alertF"; 
+fi
+if [ -f "$BOMA_RULES" ]; then 
+	rm "$BOMA_RULES"; 
+fi
+if [ -f "$BOMA_LOG_DIR/alertF" ]; then 
+	rm "$BOMA_LOG_DIR/alertF"; 
+fi
+if [ -f "$pidFile" ]; then 
+	rm "$pidFile" && touch "$pidFile"; 
+fi
+for pid in $(ps aux | grep -E 'rc.boma |inotifywait |snort ' | grep -v grep | awk '{print $2}'); 
 	do kill -9 $pid &> /dev/null ; 
-for pid in $(ps -ef | grep 'inotifywait' | grep -v grep | awk '{print $2}'); 
-	do kill -9 $pid &> /dev/null ; 
-for pid in $(ps -ef | grep 'snort' | grep -v grep | awk '{print $2}'); 
-	do kill -9 $pid &> /dev/null ; 
-
-done 
-done
 done 
 }
 
@@ -182,10 +190,6 @@ restartDaemon() {
 }
 
 ipsSystem() {
-	SNORT_LOG_DIR="/var/log/snort/"
-	BOMA_LOG_DIR="/var/log/snort/boma"
-	BOMA_RULES="/var/log/snort/boma/ips-rule.sh"
-
 	# Make direktory boma
 	if [ ! -d "$BOMA_LOG_DIR" ]; then 
 		mkdir -p "$BOMA_LOG_DIR"; 
