@@ -158,7 +158,7 @@ fi
 if [ -f "$pidFile" ]; then 
 	rm "$pidFile" && touch "$pidFile"; 
 fi
-for pid in $(ps aux | grep -E 'rc.boma |inotifywait |snort ' | grep -v grep | awk '{print $2}'); 
+for pid in $(ps aux | grep -E '$0 |inotifywait |snort ' | grep -v grep | awk '{print $2}'); 
 	do kill -9 $pid &> /dev/null ; 
 done 
 }
