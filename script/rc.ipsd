@@ -1,0 +1,229 @@
+#!/bin/sh
+
+APP_NAME="$0"
+APP_PID=`echo $$`
+
+DIR_PID="/var/run"
+DIR_LOG_SNORT="/var/log/snort"
+DIR_LOG_BOMA="$DIR_LOG_SNORT/boma"
+
+FILE_PID="$DIR_PID/$APP_NAME.pid"
+FILE_ALERT="$DIR_LOG_SNORT/alert"
+FILE_FILTER="$DIR_LOG_BOMA/alert-filter"
+FILE_RULE="$DIR_LOG_BOMA/ips-rules.sh"
+FILE_LOG="$DIR_LOG_BOMA/log"
+
+MAX_LOG=1024
+
+RUN_TIME=60 
+
+setupFile() {
+
+	if [ ! -d $DIR_LOG_SNORT ]; then 
+		echo "Log directory doesn't exist, make sure snort has already installed."
+		exit
+	fi 
+	if [ ! -d $DIR_LOG_BOMA ]; then 
+		mkdir $DIR_LOG_BOMA
+	fi 
+	if [ ! -f $FILE_PID ]; then 
+		touch $FILE_PID
+	fi 
+	if [ ! -f $FILE_FILTER ]; then 
+		touch $FILE_FILTER
+	fi 
+	if [ ! -f $FILE_RULE ]; then 
+		touch $FILE_RULE
+		chmod +x $FILE_RULE
+
+	fi 
+	if [ ! -f $FILE_LOG ]; then 
+		touch $FILE_LOG
+	else 
+		LOG_SIZE=$((`ls -l rc.boma | cut -d " " -f 5`/1024))
+		if [[ $LOG_SIZE -gt $MAX_LOG ]]; then 
+			mv $FILE_LOG "$FILE_LOG.old"
+			touch $FILE_LOG
+		fi 
+	fi 
+
+}
+
+checkStatus() {
+
+	if [ -f $FILE_PID ]; then 
+		OLD_PID=`cat $FILE_PID`
+	else
+		echo "Please start the $APP_NAME first, use : $APP_NAME start"
+		exit 
+	fi 
+
+	if [ -z $OLD_PID ]; then 
+		# APP isn't run 
+		return 0 
+	elif [[ `ps -e | grep "$OLD_PID " | grep -v grep` > /dev/null ]]; then 
+		if [[ `cat $FILE_PID` = $OLD_PID ]]; then 
+			# APP is run 
+			return 1 
+		else
+			# APP isn't run 
+			return 0 
+		fi 
+	elif [[ `ps -eF | grep "$APP_NAME " | grep -v "$APP_PID " | grep -v grep` > /dev/null ]]; then 
+		# APP is run but with incorrect PID.
+		log '*** '`date +"%Y-%m-%d"`": $APP_NAME running with invalid PID or more then one PID is running."
+
+		restartApp 
+		return 1 
+	else 
+		return 0
+	fi 
+	return 1
+
+}
+
+log() {
+
+	echo "$1" >> "$FILE_LOG"
+
+}
+
+startApp() {
+
+if [[ $APP_STATUS = 1 ]]; then 
+	echo "$APP_NAME is already running."
+	exit 1
+fi 
+echo "Start to run $APP_NAME with PID : $APP_PID."
+echo $APP_PID > "$FILE_PID"
+log `date +"%Y-%m-%d"`": Starting up $APP_NAME."
+
+snort -i eth0 -de -D -c /etc/snort/snort.conf -A fast
+
+ipsSystem 
+
+}
+
+stopApp() {
+
+if [[ $APP_STATUS = 0 ]]; then 
+	echo "$APP_NAME is not running."
+	exit 1
+fi
+echo "Stopping $APP_NAME"
+
+log `date +"%Y-%m-%d"`": $APP_NAME stopped."
+
+if [[ `ps -ef | grep "$APP_NAME " | grep -v grep | wc -l` -eq 1 ]]; then
+	kill -9 $oldPid &> /dev/null
+	echo "Kill one"
+else 
+	for pid in $(ps -ef | grep "$APP_NAME " | grep -v grep | awk '{print $2}'); 
+	do kill -9 $pid &> /dev/null ;
+		echo "Kill more then one"	
+	done 
+fi
+
+}
+
+resetApp() {
+
+	iptables -F
+
+	if [ -f $FILE_FILTER ]; then 
+		rm $FILE_FILTER 
+	fi
+	if [ -f $FILE_RULE ]; then 
+		rm $FILE_RULE 
+	fi
+	if [ -f $FILE_ALERT ]; then
+		cat $FILE_ALERT >> "$FILE_ALERT.back" 	
+		rm $FILE_ALERT  
+	fi
+	if [ -f "$FILE_PID" ]; then 
+		rm $FILE_PID && touch $FILE_PID 
+	fi
+	echo "Reset iptables -F, rm alertF, ips-rules.sh and $FILE_PIS"
+	for pid in $(ps -ef | grep -E '"$APP_NAME " |inotifywait |snort ' | grep -v grep | awk '{print $2}'); 
+	do kill -9 $pid &> /dev/null ; 
+	done 
+
+}
+
+statusApp() {
+
+	if [[ $APP_STATUS = 1 ]]; then 
+		echo "$APP_NAME is running with PID : $OLD_PID, OLD_PID : `cat $FILE_PID` ."
+	else 
+		echo "$APP_NAME is not running."
+	fi
+
+}
+
+restartApp() {
+
+	if [[ $APP_STATUS = 0 ]]; then 
+		echo "$APP_NAME isn't running."
+		exit 1
+	fi 
+
+	stopApp 
+
+	sleep 2
+
+	startApp 
+
+}
+
+ipsSystem() {
+
+	if [ ! -d $DIR_LOG_BOMA ]; then 
+		mkdir -p $DIR_LOG_BOMA; 
+	fi
+
+	# Wait for change in alert file, then create alert filter file  
+	inotifywait -q -m -e modify $FILE_ALERT | 
+	while read events; 
+	do sed -r 's/^.*} (([0-9]{1,3}\.){3}[0-9]{1,3}).*/\1/' $FILE_ALERT | uniq -c > $FILE_FILTER;
+		ALERT_FILTER=$(wc -l $FILE_FILTER | awk '{print $1}')
+		IPS_RULE=$(wc -l $FILE_RULE | awk '{print $1}')
+		# Compare alert filter and ips-rule.sh so that the ips-rules.sh only run when there is a new kind of rule
+		if [ "$ALERT_FILTER" == "$IPS_RULE" ]; then  
+			continue 
+		else  
+			cat $FILE_FILTER | awk '{print "iptables -I INPUT -s "$2" -j DROP"}' > $FILE_RULE
+			notify-send "Address $"
+			sh $FILE_RULE
+		fi
+	done
+	echo "$APP_NAME system is running >>>>"
+
+}
+
+setupFile 
+
+checkStatus
+APP_STATUS=$?
+
+case "$1" in
+	start)
+		startApp
+		;;
+	stop)
+		stopApp
+		;;
+	status)
+		statusApp
+		;;
+	restart)
+		restartApp
+		;;
+	reset)
+		resetApp
+		;;
+	*)
+		echo "usage $APP_NAME { start | stop | reset | restart | daemonStatus }"
+		exit 1
+esac
+
+exit 0
